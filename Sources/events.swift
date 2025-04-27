@@ -53,14 +53,17 @@ class JobEnqueued: Event {
 }
 
 class JobCompleted: Event {
+  var job: Job
   var worker_id: Int
 
-  init(worker_id: Int, at: Date = Date()) {
+  init(job: Job, worker_id: Int, at: Date = Date()) {
+    self.job = job
     self.worker_id = worker_id
     super.init(at: at)
   }
 
   override func perform(_ simulation: Simulation) {
+    simulation.recordJobCompletion(job, worker_id: worker_id, at: at)
     print("Worker finished a job at \(at)")
     if let w = simulation.workerWithId(self.worker_id) {
       w.idle = true

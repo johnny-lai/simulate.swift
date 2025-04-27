@@ -27,11 +27,13 @@ class Simulation {
     do {
       let reader = try CSVReader(stream: stream, hasHeaderRow: true)
       let decoder = CSVRowDecoder()
+      decoder.dateDecodingStrategy = .custom({ value in
+        dateFormatter.date(from: value) ?? Date(timeIntervalSince1970: 0)
+      })
       while reader.next() != nil {
         let queue = self.queue
-        let at = dateFormatter.date(from: reader["enqueued_at"]!)
         let job = try decoder.decode(Job.self, from: reader)
-        eventQueue.enqueue(JobEnqueued(job: job, to: queue, at: at!))
+        eventQueue.enqueue(JobEnqueued(job: job, to: queue, at: job.enqueuedAt))
       }
     } catch {
         // Invalid row format
@@ -43,7 +45,7 @@ class Simulation {
   }
 
   func desiredWorkerCount() -> Int {
-    return 2
+    return 3
   }
 
   func autoScale() {
@@ -75,6 +77,12 @@ class Simulation {
     } else {
       print("Simulation ended without events")
     }
+  }
+
+  func recordJobCompletion(_ job: Job, worker_id: Int, at: Date) {
+    let startedAt = at - job.latency
+    let pickup = startedAt.timeIntervalSince(job.enqueuedAt)
+    print("\(pickup) seconds to pick up \(job.id)")
   }
 
   func stats() -> Stat {

@@ -22,7 +22,7 @@ class Worker {
       if let job = self.queue.dequeue() {
         print("Worker picked up \(job) at \(at)")
         self.idle = false
-        events.enqueue(JobCompleted(worker_id: self.id, at: at.addingTimeInterval(job.latency)))
+        events.enqueue(JobCompleted(job: job, worker_id: self.id, at: at.addingTimeInterval(job.latency)))
       }
     }
   }
@@ -50,11 +50,13 @@ class JobQueue {
 class Job : CustomStringConvertible, Decodable {
   var id: Int
   var queue: String
+  var enqueuedAt: Date
   var latency: TimeInterval
 
-  init(id: Int, queue: String = "default", latency: TimeInterval = 0) {
+  init(id: Int, queue: String = "default", enqueuedAt: Date, latency: TimeInterval = 0) {
     self.id = id
     self.queue = queue
+    self.enqueuedAt = enqueuedAt
     self.latency = latency
   }
 

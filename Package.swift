@@ -5,6 +5,9 @@ import PackageDescription
 
 let package = Package(
     name: "simulate",
+    platforms: [
+        .macOS(.v12)
+    ],
     dependencies: [
         .package(url: "https://github.com/yaslab/CSV.swift", from: "2.5.2"),
     ],
