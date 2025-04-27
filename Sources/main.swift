@@ -10,7 +10,7 @@ class Event {
     self.at = at
   }
 
-  func perform() {}
+  func perform(_ events: EventQueue) {}
 }
 
 class EventQueue {
@@ -32,7 +32,7 @@ class EventQueue {
   }
 }
 
-class EnqueueJob: Event {
+class JobEnqueued: Event {
   var job: Job
   var to: JobQueue
 
@@ -42,11 +42,26 @@ class EnqueueJob: Event {
     super.init(at: at)
   }
 
-  override func perform() {
-    print("Enqueueing job \(job) at \(at)")
+  override func perform(_ events: EventQueue) {
+    print("Enqueueing job \(self.job) at \(at)")
     to.enqueue(self.job)
   }
 }
+
+class JobCompleted: Event {
+  var worker: Worker
+
+  init(worker: Worker, at: Date = Date()) {
+    self.worker = worker
+    super.init(at: at)
+  }
+
+  override func perform(_ events: EventQueue) {
+    print("Worker finished a job at \(at)")
+    worker.jobCompleted(at: self.at)
+  }
+}
+
 
 class JobQueue {
   var jobs: [Job] = []
@@ -71,6 +86,7 @@ class Job : CustomStringConvertible {
   var id: Int
   var queue: String
   var latency: TimeInterval
+
   init(id: Int, queue: String = "default", latency: TimeInterval = 0) {
     self.id = id
     self.queue = queue
@@ -82,17 +98,44 @@ class Job : CustomStringConvertible {
   }
 }
 
+class Worker {
+  var queue: JobQueue
+  var job: Job?
+  var jobCount: Int = 0
 
-var jobQueue = JobQueue()
+  init(queue: JobQueue) {
+    self.queue = queue
+  }
+  
+  func perform(_ events: EventQueue, at: Date) {
+    if self.job == nil {
+      if let job = self.queue.dequeue() {
+        print("Worker picked up \(job) at \(at)")
+        events.enqueue(JobCompleted(worker: self, at: at.addingTimeInterval(job.latency)))
+      }
+    }
+  }
+
+  func jobCompleted(at: Date) {
+    self.jobCount += 1
+    self.job = nil
+  }
+}
+
+
 var eventQueue = EventQueue()
+var jobQueue = JobQueue()
+var w = Worker(queue: jobQueue)
 
 let start = Date()
-eventQueue.enqueue(EnqueueJob(job: Job(id: 1), to: jobQueue, at: start.addingTimeInterval(10)))
-eventQueue.enqueue(EnqueueJob(job: Job(id: 2), to: jobQueue))
+eventQueue.enqueue(JobEnqueued(job: Job(id: 1, latency: 2), to: jobQueue, at: start.addingTimeInterval(10)))
+eventQueue.enqueue(JobEnqueued(job: Job(id: 2, latency: 12), to: jobQueue))
 
 
 print("Starting simulation")
 while let event = eventQueue.dequeue() {
-  event.perform()
+  let at = event.at
+  event.perform(eventQueue)
+  w.perform(eventQueue, at: at)
 }
-print("Simulation ended: \(jobQueue.count)")
+print("Simulation ended: \(jobQueue.count) \(w.jobCount)")
