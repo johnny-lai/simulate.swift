@@ -8,31 +8,23 @@
 import Foundation
 
 class Worker {
+  var id: Int
   var queue: JobQueue
-  var job: Job?
-  var jobCount: Int = 0
+  var idle: Bool = true
 
-  init(queue: JobQueue) {
+  init(id: Int, queue: JobQueue) {
+    self.id = id
     self.queue = queue
   }
   
   func perform(_ events: EventQueue, at: Date) {
-    if self.job == nil {
+    if self.idle {
       if let job = self.queue.dequeue() {
         print("Worker picked up \(job) at \(at)")
-        self.job = job
-        events.enqueue(JobCompleted(worker: self, at: at.addingTimeInterval(job.latency)))
+        self.idle = false
+        events.enqueue(JobCompleted(worker_id: self.id, at: at.addingTimeInterval(job.latency)))
       }
     }
-  }
-
-  func jobCompleted(at: Date) {
-    self.jobCount += 1
-    self.job = nil
-  }
-
-  var idle: Bool {
-    return self.job == nil
   }
 }
 

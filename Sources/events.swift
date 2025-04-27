@@ -33,7 +33,7 @@ class Event {
     self.at = at
   }
 
-  func perform(_ events: EventQueue) {}
+  func perform(_ simulation: Simulation) {}
 }
 
 class JobEnqueued: Event {
@@ -46,22 +46,24 @@ class JobEnqueued: Event {
     super.init(at: at)
   }
 
-  override func perform(_ events: EventQueue) {
+  override func perform(_ simulation: Simulation) {
     print("Enqueueing job \(self.job) at \(at)")
     to.enqueue(self.job)
   }
 }
 
 class JobCompleted: Event {
-  var worker: Worker
+  var worker_id: Int
 
-  init(worker: Worker, at: Date = Date()) {
-    self.worker = worker
+  init(worker_id: Int, at: Date = Date()) {
+    self.worker_id = worker_id
     super.init(at: at)
   }
 
-  override func perform(_ events: EventQueue) {
+  override func perform(_ simulation: Simulation) {
     print("Worker finished a job at \(at)")
-    worker.jobCompleted(at: self.at)
+    if let w = simulation.workerWithId(self.worker_id) {
+      w.idle = true
+    }
   }
 }
