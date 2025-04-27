@@ -20,6 +20,7 @@ class Worker {
     if self.job == nil {
       if let job = self.queue.dequeue() {
         print("Worker picked up \(job) at \(at)")
+        self.job = job
         events.enqueue(JobCompleted(worker: self, at: at.addingTimeInterval(job.latency)))
       }
     }
@@ -28,6 +29,10 @@ class Worker {
   func jobCompleted(at: Date) {
     self.jobCount += 1
     self.job = nil
+  }
+
+  var idle: Bool {
+    return self.job == nil
   }
 }
 
@@ -50,7 +55,7 @@ class JobQueue {
   }
 }
 
-class Job : CustomStringConvertible {
+class Job : CustomStringConvertible, Decodable {
   var id: Int
   var queue: String
   var latency: TimeInterval
