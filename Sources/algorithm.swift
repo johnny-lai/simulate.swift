@@ -12,7 +12,7 @@ protocol Algorithm {
 }
 
 class PercentileAlgorithm : Algorithm {
-  var percentile: Double = 90
+  var percentile: Double = 0.90
 
   func estimate(_ history: EventLog, queue: JobQueue, at: Date) -> Double {
     var estimatedQueueLength : Double = 0

@@ -10,6 +10,15 @@ struct Run: ParsableCommand {
   @Option(name: [.short, .customLong("input")], help: "The CSV file to load, or '-' for stdin.")
   var inFile: String
 
+  @Option(name: [.short, .customLong("workers")], help: "Workers per pod. Default: 3")
+  var workersPerPod: Int = 3
+
+  @Option(name: [.customLong("min-pods")], help: "Min Pods. Default: 1")
+  var minPods: Int = 1
+
+  @Option(name: [.customLong("max-pods")], help: "Max Pods. Default: 3")
+  var maxPods: Int = 3
+
   mutating func run() throws {
     if inFile == "-" {
       inFile = "/dev/stdin"
@@ -22,6 +31,9 @@ struct Run: ParsableCommand {
 
     let simulation = Simulation()
     simulation.loadCSV(stream)
+    simulation.maxPods = maxPods
+    simulation.minPods = minPods
+    simulation.workersPerPod = workersPerPod
     simulation.algorithm = PercentileAlgorithm()
     simulation.run()
   }
