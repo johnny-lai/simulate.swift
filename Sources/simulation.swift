@@ -29,10 +29,9 @@ class Simulation {
 
   var history: EventLog = EventLog()
 
-  func loadCSV(_ filename: String) {
+  func loadCSV(_ stream: InputStream) {
     let dateFormatter = ISO8601DateFormatter()
     dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    let stream = InputStream(fileAtPath: filename)!
     do {
       let reader = try CSVReader(stream: stream, hasHeaderRow: true)
       let decoder = CSVRowDecoder()
