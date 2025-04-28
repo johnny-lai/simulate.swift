@@ -36,7 +36,7 @@ class Event {
   func perform(_ simulation: Simulation) {}
 }
 
-class JobEnqueued: Event {
+class JobEnqueuedEvent: Event {
   var job: Job
   var to: JobQueue
 
@@ -52,7 +52,7 @@ class JobEnqueued: Event {
   }
 }
 
-class JobCompleted: Event {
+class JobCompletedEvent: Event {
   var job: Job
   var worker_id: Int
 
@@ -67,6 +67,17 @@ class JobCompleted: Event {
     print("Worker finished a job at \(at)")
     if let w = simulation.workerWithId(self.worker_id) {
       w.idle = true
+    }
+  }
+}
+
+class AutoScaleEvent: Event {
+  override func perform(_ simulation: Simulation) {
+    simulation.autoScale(at: at)
+
+    // Schedule next auto-scale in 15 seconds
+    if !simulation.isDone() {
+      simulation.eventQueue.enqueue(AutoScaleEvent(at: at.addingTimeInterval(15)))
     }
   }
 }

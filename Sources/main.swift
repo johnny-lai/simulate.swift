@@ -4,11 +4,7 @@
 import Foundation
 import CSV
 
-
-
-
 var simulation = Simulation()
 simulation.loadCSV("/Users/bing-changlai/Projects/simulate/Samples/jobs.csv")
+simulation.algorithm = PercentileAlgorithm()
 simulation.run()
-
-

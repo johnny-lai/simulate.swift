@@ -11,6 +11,7 @@ class Worker {
   var id: Int
   var queue: JobQueue
   var idle: Bool = true
+  var alive: Bool = true
 
   init(id: Int, queue: JobQueue) {
     self.id = id
@@ -18,11 +19,11 @@ class Worker {
   }
   
   func perform(_ events: EventQueue, at: Date) {
-    if self.idle {
+    if self.idle && self.alive {
       if let job = self.queue.dequeue() {
         print("Worker picked up \(job) at \(at)")
         self.idle = false
-        events.enqueue(JobCompleted(job: job, worker_id: self.id, at: at.addingTimeInterval(job.latency)))
+        events.enqueue(JobCompletedEvent(job: job, worker_id: self.id, at: at.addingTimeInterval(job.latency)))
       }
     }
   }
@@ -44,6 +45,10 @@ class JobQueue {
       return nil
     }
     return jobs.removeFirst()
+  }
+
+  func latency() -> TimeInterval {
+    jobs.reduce(0) { $0 + $1.latency }
   }
 }
 

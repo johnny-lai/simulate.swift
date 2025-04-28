@@ -1,5 +1,5 @@
 {
-  "originHash" : "02647fb7959022b374edeb7142228b10165a3378ace22821b6ca876843b355d4",
+  "originHash" : "00ff96510beefe48356bbbd0414a5d8e1e32ab77de1efcd3b52b7e3c090e891d",
   "pins" : [
     {
       "identity" : "csv.swift",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "b4371dc833ba22ab6ead90fb63d267c3cf9ce773",
         "version" : "2.5.2"
+      }
+    },
+    {
+      "identity" : "sigmaswiftstatistics",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/evgenyneu/SigmaSwiftStatistics",
+      "state" : {
+        "revision" : "d36db09f97a1739edc8c63897220c7ecbb5de684",
+        "version" : "9.0.2"
       }
     }
   ],
