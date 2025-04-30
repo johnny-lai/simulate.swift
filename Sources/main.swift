@@ -12,6 +12,12 @@ struct Run: ParsableCommand {
   @Option(name: [.short, .customLong("input")], help: "The CSV file to load, or '-' for stdin.")
   var inFile: String
 
+  @Option(name: [.short, .customLong("multiplier")], help: "Multiplier. Default: 1.0")
+  var multipler: Double = 1.0
+
+  @Option(name: [.short, .customLong("target")], help: "Target Pickup Seconds. Default: 300")
+  var targetPickup: TimeInterval = 300
+
   @Option(name: [.short, .customLong("workers")], help: "Workers per pod. Default: 3")
   var workersPerPod: Int = 3
 
@@ -19,7 +25,13 @@ struct Run: ParsableCommand {
   var minPods: Int = 1
 
   @Option(name: [.customLong("max-pods")], help: "Max Pods. Default: 3")
-  var maxPods: Int = 3
+  var maxPods: Int = 30
+
+  @Option(name: [.customLong("startup")], help: "Pod Startup Seconds. Default: 180")
+  var podStartupTime: TimeInterval = 180
+
+  @Option(name: [.customLong("shutdown")], help: "Pod Shutdown Seconds. Default: 0")
+  var podShutdownTime: TimeInterval = 0
 
   mutating func run() throws {
     if inFile == "-" {
@@ -33,9 +45,13 @@ struct Run: ParsableCommand {
 
     let simulation = Simulation()
     simulation.loadCSV(stream)
-    simulation.maxPods = maxPods
-    simulation.minPods = minPods
+    simulation.multipler = multipler
+    simulation.targetPickup = targetPickup
     simulation.workersPerPod = workersPerPod
+    simulation.minPods = minPods
+    simulation.maxPods = maxPods
+    simulation.podStartupTime = podStartupTime
+    simulation.podShutdownTime = podShutdownTime
     simulation.algorithm = PercentileAlgorithm()
     simulation.run()
   }

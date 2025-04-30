@@ -27,6 +27,7 @@ class Simulation {
   var algorithm: Algorithm = PercentileAlgorithm()
   var podStartupTime: TimeInterval = 180
   var podShutdownTime: TimeInterval = 0
+  var multipler: Double = 1.0
 
   var eventQueue: EventQueue = EventQueue()
   var queue: JobQueue = JobQueue()
@@ -61,7 +62,7 @@ class Simulation {
   }
 
   func estimatedQueueLength(at: Date) -> Double {
-    return self.algorithm.estimate(history, queue: queue, at: at)
+    return self.multipler * self.algorithm.estimate(history, queue: queue, at: at)
   }
 
   func desiredPodCount(estimate: Double) -> Int {
@@ -161,20 +162,23 @@ class Simulation {
 
   func writeHeader(to: CSVWriter) {
     do {
-      try to.write(row: ["timestamp", "queued_jobs", "idle_workers", "running_workers", "pods"])
+      try to.write(row: ["timestamp", "queued_jobs", "actual_s", "estimated_s", "idle_workers", "running_workers", "pods"])
     } catch {
     }
   }
 
   func writeState(_ at: Date, to: CSVWriter) {
     let running = busyWorkers().count
+    let e = estimatedQueueLength(at: at)
     do {
       try to.write(row: [
         "\(at)",
         "\(queue.jobs.count)",
+        "\(queue.latency())",
+        "\(e)",
         "\(aliveWorkers().count - running)",
         "\(running)",
-        "\(currentPodCount())"
+        "\(currentPodCount())",
       ])
     } catch {
     }
