@@ -73,11 +73,62 @@ class JobCompletedEvent: Event {
 
 class AutoScaleEvent: Event {
   override func perform(_ simulation: Simulation) {
-    simulation.autoScale(at: at)
+    let podStartUp : TimeInterval = 180
+    let currentPodCount = simulation.currentPodCount()
+    var desiredPodCount = simulation.desiredPodCount(at: at)
 
-    // Schedule next auto-scale in 15 seconds
-    if !simulation.isDone() {
+    // Ensure desired is with min to max range
+    desiredPodCount = min(desiredPodCount, simulation.maxPods)
+    desiredPodCount = max(desiredPodCount, simulation.minPods)
+
+    if currentPodCount < desiredPodCount {
+      print("\(at): AutoScale: Scale up \(currentPodCount) to \(desiredPodCount) pods")
+      simulation.eventQueue.enqueue(AddPodEvent(desiredPodCount - currentPodCount, at: at.addingTimeInterval(podStartUp)))
+    } else if currentPodCount > desiredPodCount {
+      print("\(at): AutoScale: Scale down \(currentPodCount) to \(desiredPodCount) pods")
+      simulation.eventQueue.enqueue(RemovePodEvent(desiredPodCount - currentPodCount, at: at.addingTimeInterval(1)))
+    } else if !simulation.isDone() {
+      // Schedule next auto-scale in 15 seconds
       simulation.eventQueue.enqueue(AutoScaleEvent(at: at.addingTimeInterval(15)))
     }
   }
 }
+
+class AddPodEvent: Event {
+  var count: Int
+  
+  init(_ count: Int, at: Date = Date()) {
+    self.count = count
+    super.init(at: at)
+  }
+  
+  override func perform(_ simulation: Simulation) {
+    print("\(at): AddPodEvent: added \(count) new pods")
+    simulation.addPod(count)
+
+    if !simulation.isDone() {
+      // Schedule next auto-scale in 15 seconds
+      simulation.eventQueue.enqueue(AutoScaleEvent(at: at.addingTimeInterval(15)))
+    }
+  }
+}
+
+class RemovePodEvent: Event {
+  var count: Int
+  
+  init(_ count: Int, at: Date = Date()) {
+    self.count = count
+    super.init(at: at)
+  }
+  
+  override func perform(_ simulation: Simulation) {
+    print("\(at): RemovePodEvent: removed \(count) pods")
+    simulation.removePod(count)
+
+    if !simulation.isDone() {
+      // Schedule next auto-scale in 15 seconds
+      simulation.eventQueue.enqueue(AutoScaleEvent(at: at.addingTimeInterval(15)))
+    }
+  }
+}
+

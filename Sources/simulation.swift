@@ -77,27 +77,6 @@ class Simulation {
     return aliveWorkers().count / workersPerPod
   }
 
-  func autoScale(at: Date) {
-    let currentPodCount = self.currentPodCount()
-    var desiredPodCount = self.desiredPodCount(at: at)
-
-    // Ensure desired is with min to max range
-    desiredPodCount = min(desiredPodCount, maxPods)
-    desiredPodCount = max(desiredPodCount, minPods)
-
-    // TODO: Simulate delay in adding workers
-    // TODO: Simulate pods
-    if currentPodCount < desiredPodCount {
-      print("\(at): AutoScale: Scale up \(currentPodCount) to \(desiredPodCount) pods")
-      addPod(desiredPodCount - currentPodCount)
-    } else if currentPodCount > desiredPodCount {
-      print("\(at): AutoScale: Scale down \(currentPodCount) to \(desiredPodCount) pods")
-      removePod(currentPodCount - desiredPodCount)
-    } else {
-      print("\(at): AutoScale: \(currentPodCount) is stable")
-    }
-  }
-
   func addPod(_ n: Int = 1) {
     let targetWorkerCount = n * workersPerPod
     for _ in 0..<targetWorkerCount {
