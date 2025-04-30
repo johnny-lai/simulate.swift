@@ -109,6 +109,10 @@ class Simulation {
   }
 
   func run() {
+    let stream = OutputStream(toFileAtPath: "output.csv", append: false)!
+    let csv = try! CSVWriter(stream: stream)
+    writeHeader(to: csv)
+
     if let first = eventQueue.events.first {
       // Start with 1 pod
       addPod(1)
@@ -121,12 +125,12 @@ class Simulation {
       while let event = eventQueue.dequeue() {
         if isDone() { break }
         at = event.at
-        logState(at)
+        writeState(at, to: csv)
         event.perform(self)
 
         aliveWorkers().forEach( { $0.perform(eventQueue, at: at) } )
       }
-      logState(at)
+      writeState(at, to: csv)
 
       let pickups = history.pickups(since: first.at)
       let pickupAverage = Sigma.average(pickups)!
@@ -137,6 +141,8 @@ class Simulation {
         "pickup_max_s": "\(String(format: "%.2f", pickupMax))"
       ])
     }
+
+    stream.close()
   }
 
   func recordJobCompletion(_ job: Job, worker_id: Int, at: Date) {
@@ -153,18 +159,29 @@ class Simulation {
     expectedJobCount -= 1
   }
 
-  func logState(_ at: Date) {
+  func writeHeader(to: CSVWriter) {
+    do {
+      try to.write(row: ["timestamp", "queued_jobs", "idle_workers", "running_workers", "pods"])
+    } catch {
+    }
+  }
+
+  func writeState(_ at: Date, to: CSVWriter) {
     let running = busyWorkers().count
-    stateLog.info("", metadata: [
-      "at": "\(at)",
-      "pending_jobs": "\(queue.jobs.count)",
-      "workers_idle": "\(aliveWorkers().count - running)",
-      "workers_running": "\(running)",
-      "current_pods": "\(currentPodCount())"
-    ])
+    do {
+      try to.write(row: [
+        "\(at)",
+        "\(queue.jobs.count)",
+        "\(aliveWorkers().count - running)",
+        "\(running)",
+        "\(currentPodCount())"
+      ])
+    } catch {
+    }
   }
 
   func isDone() -> Bool {
     return expectedJobCount <= 0 && self.busyWorkers().count == 0
   }
 }
+

@@ -4,6 +4,7 @@
 import ArgumentParser
 import Foundation
 import Logging
+import CSV
 
 struct Run: ParsableCommand {
   static let configuration = CommandConfiguration(abstract: "Job simulator")
