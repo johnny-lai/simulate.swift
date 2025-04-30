@@ -7,6 +7,11 @@
 
 import Foundation
 import CSV
+import Logging
+import SigmaSwiftStatistics
+
+let eventLog = Logger(label: "events")
+let stateLog = Logger(label: "state")
 
 struct State {
   var jobsPending: Int = 0
@@ -20,6 +25,8 @@ class Simulation {
   var maxPods: Int = 5
   var minPods: Int = 1
   var algorithm: Algorithm = PercentileAlgorithm()
+  var podStartupTime: TimeInterval = 180
+  var podShutdownTime: TimeInterval = 0
 
   var eventQueue: EventQueue = EventQueue()
   var queue: JobQueue = JobQueue()
@@ -57,12 +64,12 @@ class Simulation {
     return self.algorithm.estimate(history, queue: queue, at: at)
   }
 
-  func desiredPodCount(at: Date) -> Int {
-    let e = estimatedQueueLength(at: at)
-    print("Actual = \(self.queue.latency()) Estimated = \(e)")
-
-    let desiredWorkers = max(e / targetPickup, e)
-    return max(Int(ceil(desiredWorkers/Double(workersPerPod))), 1)
+  func desiredPodCount(estimate: Double) -> Int {
+    var desiredWorkers = Int(ceil(estimate / targetPickup))
+    if desiredWorkers > self.queue.count {
+      desiredWorkers = self.queue.count
+    }
+    return Int(ceil(Double(desiredWorkers)/Double(workersPerPod)))
   }
 
   func aliveWorkers() -> [Worker] {
@@ -102,7 +109,6 @@ class Simulation {
   }
 
   func run() {
-    print("Starting simulation")
     if let first = eventQueue.events.first {
       // Start with 1 pod
       addPod(1)
@@ -115,19 +121,21 @@ class Simulation {
       while let event = eventQueue.dequeue() {
         if isDone() { break }
         at = event.at
-        print("\(at): \(state())")
+        logState(at)
         event.perform(self)
 
         aliveWorkers().forEach( { $0.perform(eventQueue, at: at) } )
       }
+      logState(at)
 
-      print("\(at): \(state())")
-      print("Simulation ended at \(at)")
+      let pickups = history.pickups(since: first.at)
+      let pickupAverage = Sigma.average(pickups)!
+      let pickupMax = Sigma.max(pickups)!
 
-      let pickupAverage = history.pickupAverage(since: first.at)
-      print("Pickup average = \(pickupAverage)")
-    } else {
-      print("Simulation ended without events")
+      eventLog.info("Summary", metadata: [
+        "pickup_average_s": "\(String(format: "%.2f", pickupAverage))",
+        "pickup_max_s": "\(String(format: "%.2f", pickupMax))"
+      ])
     }
   }
 
@@ -145,12 +153,15 @@ class Simulation {
     expectedJobCount -= 1
   }
 
-  func state() -> State {
-    var s = State()
-    s.jobsPending = queue.jobs.count
-    s.workersBusy = busyWorkers().count
-    s.workersIdle = aliveWorkers().count - s.workersBusy
-    return s
+  func logState(_ at: Date) {
+    let running = busyWorkers().count
+    stateLog.info("", metadata: [
+      "at": "\(at)",
+      "pending_jobs": "\(queue.jobs.count)",
+      "workers_idle": "\(aliveWorkers().count - running)",
+      "workers_running": "\(running)",
+      "current_pods": "\(currentPodCount())"
+    ])
   }
 
   func isDone() -> Bool {

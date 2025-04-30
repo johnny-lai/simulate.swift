@@ -3,6 +3,7 @@
 
 import ArgumentParser
 import Foundation
+import Logging
 
 struct Run: ParsableCommand {
   static let configuration = CommandConfiguration(abstract: "Job simulator")
@@ -39,4 +40,9 @@ struct Run: ParsableCommand {
   }
 }
 
+LoggingSystem.bootstrap { label in
+    var handler = StreamLogHandler.standardOutput(label: label)
+    handler.logLevel = .trace
+    return handler
+}
 Run.main()

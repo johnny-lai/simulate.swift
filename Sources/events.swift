@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Logging
 
 class EventQueue {
   var events: [Event] = []
@@ -47,7 +48,10 @@ class JobEnqueuedEvent: Event {
   }
 
   override func perform(_ simulation: Simulation) {
-    print("Enqueueing job \(self.job) at \(at)")
+    eventLog.trace("JobEnqueuedEvent", metadata: [
+      "at": "\(self.at)",
+      "job_id": "\(self.job.id)"
+    ])
     to.enqueue(self.job)
   }
 }
@@ -63,8 +67,12 @@ class JobCompletedEvent: Event {
   }
 
   override func perform(_ simulation: Simulation) {
+    eventLog.trace("JobCompletedEvent", metadata: [
+      "at": "\(self.at)",
+      "job_id": "\(self.job.id)",
+      "worker_id": "\(self.worker_id)"
+    ])
     simulation.recordJobCompletion(job, worker_id: worker_id, at: at)
-    print("Worker finished a job at \(at)")
     if let w = simulation.workerWithId(self.worker_id) {
       w.idle = true
     }
@@ -73,24 +81,39 @@ class JobCompletedEvent: Event {
 
 class AutoScaleEvent: Event {
   override func perform(_ simulation: Simulation) {
-    let podStartUp : TimeInterval = 180
     let currentPodCount = simulation.currentPodCount()
-    var desiredPodCount = simulation.desiredPodCount(at: at)
+    let e = simulation.estimatedQueueLength(at: at)
+    let uncappedDesiredPods = simulation.desiredPodCount(estimate: e)
 
     // Ensure desired is with min to max range
+    var desiredPodCount = uncappedDesiredPods
     desiredPodCount = min(desiredPodCount, simulation.maxPods)
     desiredPodCount = max(desiredPodCount, simulation.minPods)
 
-    if currentPodCount < desiredPodCount {
-      print("\(at): AutoScale: Scale up \(currentPodCount) to \(desiredPodCount) pods")
-      simulation.eventQueue.enqueue(AddPodEvent(desiredPodCount - currentPodCount, at: at.addingTimeInterval(podStartUp)))
-    } else if currentPodCount > desiredPodCount {
-      print("\(at): AutoScale: Scale down \(currentPodCount) to \(desiredPodCount) pods")
-      simulation.eventQueue.enqueue(RemovePodEvent(desiredPodCount - currentPodCount, at: at.addingTimeInterval(1)))
-    } else if !simulation.isDone() {
-      // Schedule next auto-scale in 15 seconds
-      simulation.eventQueue.enqueue(AutoScaleEvent(at: at.addingTimeInterval(15)))
+    var direction: String;
+
+    if desiredPodCount > currentPodCount {
+      direction = "up"
+      simulation.eventQueue.enqueue(AddPodEvent(desiredPodCount - currentPodCount, at: at.addingTimeInterval(simulation.podStartupTime)))
+    } else if desiredPodCount < currentPodCount {
+      direction = "down"
+      simulation.eventQueue.enqueue(RemovePodEvent(desiredPodCount - currentPodCount, at: at.addingTimeInterval(simulation.podShutdownTime)))
+    } else {
+      direction = "flat"
+      if !simulation.isDone() {
+        // Schedule next auto-scale in 15 seconds
+        simulation.eventQueue.enqueue(AutoScaleEvent(at: at.addingTimeInterval(15)))
+      }
     }
+
+    eventLog.trace("AutoScaleEvent", metadata: [
+      "at": "\(self.at)",
+      "scale": "\(direction)",
+      "currentPods": "\(currentPodCount)",
+      "desiredPods": "\(desiredPodCount)",
+      "actual_s": "\(simulation.queue.latency())",
+      "estimated_s": "\(e)"
+    ])
   }
 }
 
@@ -103,7 +126,10 @@ class AddPodEvent: Event {
   }
   
   override func perform(_ simulation: Simulation) {
-    print("\(at): AddPodEvent: added \(count) new pods")
+    eventLog.trace("AddPodEvent", metadata: [
+      "at": "\(self.at)",
+      "count": "\(count)"
+    ])
     simulation.addPod(count)
 
     if !simulation.isDone() {
@@ -122,7 +148,10 @@ class RemovePodEvent: Event {
   }
   
   override func perform(_ simulation: Simulation) {
-    print("\(at): RemovePodEvent: removed \(count) pods")
+    eventLog.trace("RemovePodEvent", metadata: [
+      "at": "\(self.at)",
+      "count": "\(count)"
+    ])
     simulation.removePod(count)
 
     if !simulation.isDone() {

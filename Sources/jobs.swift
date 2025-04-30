@@ -6,6 +6,8 @@
 //
 
 import Foundation
+import Logging
+
 
 class Worker {
   var id: Int
@@ -21,7 +23,11 @@ class Worker {
   func perform(_ events: EventQueue, at: Date) {
     if self.idle && self.alive {
       if let job = self.queue.dequeue() {
-        print("Worker picked up \(job) at \(at)")
+        eventLog.trace("JobStartedEvent", metadata: [
+          "at": "\(at)",
+          "job_id": "\(job.id)",
+          "worker_id": "\(self.id)"
+        ])
         self.idle = false
         events.enqueue(JobCompletedEvent(job: job, worker_id: self.id, at: at.addingTimeInterval(job.latency)))
       }
