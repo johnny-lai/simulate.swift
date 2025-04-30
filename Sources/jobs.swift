@@ -60,18 +60,30 @@ class JobQueue {
 
 class Job : CustomStringConvertible, Decodable {
   var id: Int
-  var queue: String
-  var enqueuedAt: Date
+  var completedAt: Date
   var latency: TimeInterval
+  var pickup: TimeInterval
 
-  init(id: Int, queue: String = "default", enqueuedAt: Date, latency: TimeInterval = 0) {
+  init(id: Int, completedAt: Date, latency: TimeInterval = 0, pickup: TimeInterval = 0) {
+    self.completedAt = completedAt
     self.id = id
-    self.queue = queue
-    self.enqueuedAt = enqueuedAt
     self.latency = latency
+    self.pickup = pickup
   }
 
   var description: String {
-    return "Job \(id) on queue \(queue)"
+    return "Job \(id)"
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case
+      completedAt = "timestamp",
+      id = "id",
+      latency = "latency",
+      pickup = "pickup"
+  }
+
+  var enqueuedAt : Date {
+    completedAt.addingTimeInterval(-latency).addingTimeInterval(-pickup)
   }
 }
