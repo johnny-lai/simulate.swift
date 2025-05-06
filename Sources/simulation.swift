@@ -158,6 +158,7 @@ class Simulation {
       ])
 
       eventLog.info("Summary", metadata: [
+        "%_<_target": "\(String(format: "%.2f", jobsBelowTargetPercent(pickups)))",
         "pickup_average_s": "\(String(format: "%.2f", pickupAverage))",
         "pickup_max_s": "\(String(format: "%.2f", pickupMax))"
       ])
@@ -209,17 +210,11 @@ class Simulation {
     let running = busyWorkers().count
     let totalWorkers = aliveWorkers().count
 
-    let jobsBelowTarget = pickups.filter( { $0 <= targetPickup } ).count
-    var percentBelowTarget: Double = 0
-    if pickups.count > 0 {
-      percentBelowTarget = Double(jobsBelowTarget) / Double(pickups.count) * 100
-    }
-
     let kpis = csv(.kpis)
     try! kpis.write(row: [
       "\(at)",
       "\(String(format: "%.2f", Double(running) / Double(totalWorkers) * 100))",
-      "\(String(format: "%.2f", percentBelowTarget))",
+      "\(String(format: "%.2f", jobsBelowTargetPercent(pickups)))",
       "\(String(format: "%.2f", Sigma.percentile(pickups, percentile: 0.95) ?? 0))",
       "\(String(format: "%.2f", Sigma.max(pickups) ?? 0))",
       "\(queue.jobs.count)"
@@ -233,6 +228,15 @@ class Simulation {
       "\(currentPodCount())",
       "\(queue.jobs.count)"
     ])
+  }
+
+  func jobsBelowTargetPercent(_ pickups: [Double]) -> Double {
+    let jobsBelowTarget = pickups.filter( { $0 <= targetPickup } ).count
+    var percentBelowTarget: Double = 0
+    if pickups.count > 0 {
+      percentBelowTarget = Double(jobsBelowTarget) / Double(pickups.count) * 100
+    }
+    return percentBelowTarget
   }
 
   func isDone() -> Bool {
