@@ -144,6 +144,17 @@ class Simulation {
       let pickupAverage = Sigma.average(pickups)!
       let pickupMax = Sigma.max(pickups)!
 
+      eventLog.info("Parameters", metadata: [
+        "target_pickup_s": "\(String(format: "%.2f", targetPickup))",
+        "workers_per_pod": "\(workersPerPod)",
+        "max_pods": "\(maxPods)",
+        "min_pods": "\(minPods)",
+        "algorithm": "\(algorithm)",
+        "pod_startup_time": "\(podStartupTime)",
+        "pod_shutdown_time": "\(podShutdownTime)",
+        "multipler": "\(multipler)"
+      ])
+
       eventLog.info("Summary", metadata: [
         "pickup_average_s": "\(String(format: "%.2f", pickupAverage))",
         "pickup_max_s": "\(String(format: "%.2f", pickupMax))"
