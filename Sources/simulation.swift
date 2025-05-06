@@ -123,6 +123,8 @@ class Simulation {
   }
 
   func run() {
+    var maxPods: Int = 0
+
     if let first = eventQueue.events.first {
       // Start with 1 pod
       addPod(1)
@@ -135,12 +137,20 @@ class Simulation {
       while let event = eventQueue.dequeue() {
         if isDone() { break }
         at = event.at
+
         writeState(at)
+        if currentPodCount() > maxPods {
+          maxPods = currentPodCount()
+        }
+
         event.perform(self)
 
         aliveWorkers().forEach( { $0.perform(eventQueue, at: at) } )
       }
       writeState(at)
+      if currentPodCount() > maxPods {
+        maxPods = currentPodCount()
+      }
 
       let pickups = history.pickups(since: first.at)
       let pickupAverage = Sigma.average(pickups)!
@@ -159,6 +169,7 @@ class Simulation {
 
       eventLog.info("Summary", metadata: [
         "%_<_target": "\(String(format: "%.2f", jobsBelowTargetPercent(pickups)))",
+        "max_pods": "\(maxPods)",
         "pickup_average_s": "\(String(format: "%.2f", pickupAverage))",
         "pickup_max_s": "\(String(format: "%.2f", pickupMax))"
       ])
