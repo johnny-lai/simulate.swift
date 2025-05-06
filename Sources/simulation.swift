@@ -73,7 +73,9 @@ class Simulation {
   }
 
   func estimatedQueueLength(at: Date) -> Double {
-    return self.multipler * self.algorithm.estimate(history, queue: queue, at: at)
+    let unprocessedLength = queue.jobs.count + busyWorkers().count
+
+    return self.multipler * self.algorithm.estimate(history, length: unprocessedLength, at: at)
   }
 
   func desiredPodCount(estimate: Double) -> Int {
@@ -193,9 +195,9 @@ class Simulation {
 
     switch type {
     case .kpis:
-      try! csv.write(row: ["timestamp", "queued_jobs", "95%_pickup", "max_pickup", "running%", "%_<_target"])
+      try! csv.write(row: ["timestamp", "running%", "%_<_target", "95%_pickup", "max_pickup", "queued_jobs"])
     case .queueLengths:
-      try! csv.write(row: ["timestamp", "queued_jobs", "idle_workers", "running_workers", "pods"])
+      try! csv.write(row: ["timestamp","idle_workers", "running_workers", "pods", "queued_jobs"])
     }
 
     csvs[type] = csv
@@ -216,20 +218,20 @@ class Simulation {
     let kpis = csv(.kpis)
     try! kpis.write(row: [
       "\(at)",
-      "\(queue.jobs.count)",
+      "\(String(format: "%.2f", Double(running) / Double(totalWorkers) * 100))",
+      "\(String(format: "%.2f", percentBelowTarget))",
       "\(String(format: "%.2f", Sigma.percentile(pickups, percentile: 0.95) ?? 0))",
       "\(String(format: "%.2f", Sigma.max(pickups) ?? 0))",
-      "\(String(format: "%.2f", Double(running) / Double(totalWorkers) * 100))",
-      "\(String(format: "%.2f", percentBelowTarget))"
+      "\(queue.jobs.count)"
     ])
 
     let queueLengths = csv(.queueLengths)
     try! queueLengths.write(row: [
       "\(at)",
-      "\(queue.jobs.count)",
       "\(aliveWorkers().count - running)",
       "\(running)",
       "\(currentPodCount())",
+      "\(queue.jobs.count)"
     ])
   }
 
