@@ -13,8 +13,13 @@ protocol Algorithm : CustomStringConvertible {
 }
 
 class PercentileAlgorithm : Algorithm {
-  var percentile: Double = 0.90
-  var lookback: TimeInterval = 600
+  var percentile: Double
+  var lookback: TimeInterval
+
+  init(percentile: Double = 0.90, lookback: TimeInterval = 600) {
+    self.percentile = percentile
+    self.lookback = lookback
+  }
 
   func estimate(_ history: EventLog, length: Int, at: Date) -> Double {
     var estimatedQueueLength : Double = 0
@@ -26,12 +31,16 @@ class PercentileAlgorithm : Algorithm {
   }
 
   var description: String {
-    return "percentile: \(percentile) with lookup"
+    return "percentile(\(percentile), lookback: \(lookback))"
   }
 }
 
 class AverageAlgorithm : Algorithm {
-  var lookback: TimeInterval = 600
+  var lookback: TimeInterval
+
+  init(lookback: TimeInterval = 600) {
+    self.lookback = lookback
+  }
 
   func estimate(_ history: EventLog, length: Int, at: Date) -> Double {
     var estimatedQueueLength : Double = 0
@@ -43,6 +52,6 @@ class AverageAlgorithm : Algorithm {
   }
 
   var description: String {
-    return "average with lookback: \(lookback)"
+    return "average(lookback: \(lookback))"
   }
 }

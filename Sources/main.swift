@@ -36,9 +36,12 @@ struct Run: ParsableCommand {
   @Option(name: [.customLong("shutdown")], help: "Pod Shutdown Seconds. Default: 0")
   var podShutdownTime: TimeInterval = 0
 
+  @Option(name: [.customLong("algorithm")], help: "Algorithm. Default: percentile90_5")
+  var algorithm: String = "percentile90_5"
+
   mutating func run() throws {
     let verbose = self.verbose
-    
+
     LoggingSystem.bootstrap { label in
         var handler = StreamLogHandler.standardOutput(label: label)
         if verbose {
@@ -67,7 +70,16 @@ struct Run: ParsableCommand {
     simulation.maxPods = maxPods
     simulation.podStartupTime = podStartupTime
     simulation.podShutdownTime = podShutdownTime
-    simulation.algorithm = PercentileAlgorithm()
+    switch algorithm {
+    case "percentile90_30":
+      simulation.algorithm = PercentileAlgorithm(percentile: 0.90, lookback: 30 * 60)
+    case "percentile90_5":
+      simulation.algorithm = PercentileAlgorithm(percentile: 0.90, lookback: 5 * 60)
+    case "average5":
+      simulation.algorithm = AverageAlgorithm(lookback: 5 * 60)
+    default:
+      fatalError("Unsupported algorithm: \(algorithm)")
+    }
     simulation.run()
   }
 }
