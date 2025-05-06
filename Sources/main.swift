@@ -9,6 +9,9 @@ import CSV
 struct Run: ParsableCommand {
   static let configuration = CommandConfiguration(abstract: "Job simulator")
 
+  @Option(name: [.short, .customLong("verbose")], help: "Verbose mode. Defaults to false")
+  var verbose: Bool = false
+
   @Option(name: [.short, .customLong("input")], help: "The CSV file to load, or '-' for stdin.")
   var inFile: String
 
@@ -34,6 +37,18 @@ struct Run: ParsableCommand {
   var podShutdownTime: TimeInterval = 0
 
   mutating func run() throws {
+    let verbose = self.verbose
+    
+    LoggingSystem.bootstrap { label in
+        var handler = StreamLogHandler.standardOutput(label: label)
+        if verbose {
+          handler.logLevel = .trace
+        } else {
+          handler.logLevel = .info
+        }
+        return handler
+    }
+
     if inFile == "-" {
       inFile = "/dev/stdin"
     }
@@ -57,9 +72,4 @@ struct Run: ParsableCommand {
   }
 }
 
-LoggingSystem.bootstrap { label in
-    var handler = StreamLogHandler.standardOutput(label: label)
-    handler.logLevel = .trace
-    return handler
-}
 Run.main()
