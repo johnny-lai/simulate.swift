@@ -19,6 +19,11 @@ struct State {
   var workersBusy: Int = 0
 }
 
+enum Output {
+  case queueLengths
+  case kpis
+}
+
 class Simulation {
   var targetPickup: TimeInterval = 300
   var workersPerPod: Int = 3
@@ -35,7 +40,13 @@ class Simulation {
   var nextWorkerId: Int = 1
   var expectedJobCount: Int = 0
 
+  var csvs: [Output: CSVWriter] = [:]
+
   var history: EventLog = EventLog()
+
+  deinit {
+    csvs.forEach { $0.value.stream.close() }
+  }
 
   func loadCSV(_ stream: InputStream) {
     let dateFormatter = ISO8601DateFormatter()
@@ -110,10 +121,6 @@ class Simulation {
   }
 
   func run() {
-    let stream = OutputStream(toFileAtPath: "output.csv", append: false)!
-    let csv = try! CSVWriter(stream: stream)
-    writeHeader(to: csv)
-
     if let first = eventQueue.events.first {
       // Start with 1 pod
       addPod(1)
@@ -126,12 +133,12 @@ class Simulation {
       while let event = eventQueue.dequeue() {
         if isDone() { break }
         at = event.at
-        writeState(at, to: csv)
+        writeState(at)
         event.perform(self)
 
         aliveWorkers().forEach( { $0.perform(eventQueue, at: at) } )
       }
-      writeState(at, to: csv)
+      writeState(at)
 
       let pickups = history.pickups(since: first.at)
       let pickupAverage = Sigma.average(pickups)!
@@ -142,8 +149,6 @@ class Simulation {
         "pickup_max_s": "\(String(format: "%.2f", pickupMax))"
       ])
     }
-
-    stream.close()
   }
 
   func recordJobCompletion(_ job: Job, worker_id: Int, at: Date) {
@@ -160,28 +165,61 @@ class Simulation {
     expectedJobCount -= 1
   }
 
-  func writeHeader(to: CSVWriter) {
-    do {
-      try to.write(row: ["timestamp", "queued_jobs", "actual_s", "estimated_s", "idle_workers", "running_workers", "pods"])
-    } catch {
+  func csv(_ type: Output) -> CSVWriter {
+    if csvs[type] != nil {
+      return csvs[type]!
     }
+
+    var fileName: String
+    switch type {
+    case .kpis:
+      fileName = "kpis.csv"
+    case .queueLengths:
+      fileName = "queueLengths.csv"
+    }
+    let stream = OutputStream(toFileAtPath: fileName, append: false)!
+    let csv = try! CSVWriter(stream: stream)
+
+    switch type {
+    case .kpis:
+      try! csv.write(row: ["timestamp", "queued_jobs", "95%_pickup", "max_pickup", "running%", "%_<_target"])
+    case .queueLengths:
+      try! csv.write(row: ["timestamp", "queued_jobs", "idle_workers", "running_workers", "pods"])
+    }
+
+    csvs[type] = csv
+    return csv
   }
 
-  func writeState(_ at: Date, to: CSVWriter) {
+  func writeState(_ at: Date) {
+    let pickups = history.pickups(since: at.addingTimeInterval(-30 * 60))
     let running = busyWorkers().count
-    let e = estimatedQueueLength(at: at)
-    do {
-      try to.write(row: [
-        "\(at)",
-        "\(queue.jobs.count)",
-        "\(queue.latency())",
-        "\(e)",
-        "\(aliveWorkers().count - running)",
-        "\(running)",
-        "\(currentPodCount())",
-      ])
-    } catch {
+    let totalWorkers = aliveWorkers().count
+
+    let jobsBelowTarget = pickups.filter( { $0 <= targetPickup } ).count
+    var percentBelowTarget: Double = 0
+    if pickups.count > 0 {
+      percentBelowTarget = Double(jobsBelowTarget) / Double(pickups.count) * 100
     }
+
+    let kpis = csv(.kpis)
+    try! kpis.write(row: [
+      "\(at)",
+      "\(queue.jobs.count)",
+      "\(String(format: "%.2f", Sigma.percentile(pickups, percentile: 0.95) ?? 0))",
+      "\(String(format: "%.2f", Sigma.max(pickups) ?? 0))",
+      "\(String(format: "%.2f", Double(running) / Double(totalWorkers) * 100))",
+      "\(String(format: "%.2f", percentBelowTarget))"
+    ])
+
+    let queueLengths = csv(.queueLengths)
+    try! queueLengths.write(row: [
+      "\(at)",
+      "\(queue.jobs.count)",
+      "\(aliveWorkers().count - running)",
+      "\(running)",
+      "\(currentPodCount())",
+    ])
   }
 
   func isDone() -> Bool {
