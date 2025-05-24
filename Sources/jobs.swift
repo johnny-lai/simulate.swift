@@ -8,7 +8,6 @@
 import Foundation
 import Logging
 
-
 class Worker {
   var id: Int
   var queue: JobQueue
@@ -19,17 +18,20 @@ class Worker {
     self.id = id
     self.queue = queue
   }
-  
+
   func perform(_ events: EventQueue, at: Date) {
     if self.idle && self.alive {
       if let job = self.queue.dequeue() {
-        eventLog.trace("JobStartedEvent", metadata: [
-          "at": "\(at)",
-          "job_id": "\(job.id)",
-          "worker_id": "\(self.id)"
-        ])
+        eventLog.trace(
+          "JobStartedEvent",
+          metadata: [
+            "at": "\(at)",
+            "job_id": "\(job.id)",
+            "worker_id": "\(self.id)",
+          ])
         self.idle = false
-        events.enqueue(JobCompletedEvent(job: job, worker_id: self.id, at: at.addingTimeInterval(job.latency)))
+        events.enqueue(
+          JobCompletedEvent(job: job, worker_id: self.id, at: at.addingTimeInterval(job.latency)))
       }
     }
   }
@@ -58,7 +60,7 @@ class JobQueue {
   }
 }
 
-class Job : CustomStringConvertible, Decodable {
+class Job: CustomStringConvertible, Decodable {
   var id: Int
   var completedAt: Date
   var latency: TimeInterval
@@ -77,13 +79,16 @@ class Job : CustomStringConvertible, Decodable {
 
   enum CodingKeys: String, CodingKey {
     case
-      completedAt = "timestamp",
-      id = "id",
-      latency = "latency",
+      completedAt = "timestamp"
+    case
+      id = "id"
+    case
+      latency = "latency"
+    case
       pickup = "pickup"
   }
 
-  var enqueuedAt : Date {
+  var enqueuedAt: Date {
     completedAt.addingTimeInterval(-latency).addingTimeInterval(-pickup)
   }
 }

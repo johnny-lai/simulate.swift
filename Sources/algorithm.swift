@@ -8,11 +8,11 @@
 import Foundation
 import SigmaSwiftStatistics
 
-protocol Algorithm : CustomStringConvertible {
+protocol Algorithm: CustomStringConvertible {
   func estimate(_ history: EventLog, length: Int, at: Date) -> Double
 }
 
-class PercentileAlgorithm : Algorithm {
+class PercentileAlgorithm: Algorithm {
   var percentile: Double
   var lookback: TimeInterval
 
@@ -22,7 +22,7 @@ class PercentileAlgorithm : Algorithm {
   }
 
   func estimate(_ history: EventLog, length: Int, at: Date) -> Double {
-    var estimatedQueueLength : Double = 0
+    var estimatedQueueLength: Double = 0
     let latencies = history.latencies(since: at - lookback)
     if let k = Sigma.percentile(latencies, percentile: self.percentile) {
       estimatedQueueLength = Double(length) * k
@@ -35,7 +35,7 @@ class PercentileAlgorithm : Algorithm {
   }
 }
 
-class AverageAlgorithm : Algorithm {
+class AverageAlgorithm: Algorithm {
   var lookback: TimeInterval
 
   init(lookback: TimeInterval = 600) {
@@ -43,7 +43,7 @@ class AverageAlgorithm : Algorithm {
   }
 
   func estimate(_ history: EventLog, length: Int, at: Date) -> Double {
-    var estimatedQueueLength : Double = 0
+    var estimatedQueueLength: Double = 0
     let latencies = history.latencies(since: at - 600)
     if let k = Sigma.average(latencies) {
       estimatedQueueLength = Double(length) * k

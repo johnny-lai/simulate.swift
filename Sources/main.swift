@@ -2,14 +2,14 @@
 // https://docs.swift.org/swift-book
 
 import ArgumentParser
+import CSV
 import Foundation
 import Logging
-import CSV
 
 struct Run: ParsableCommand {
   static let configuration = CommandConfiguration(abstract: "Job simulator")
 
-  @Option(name: [.short, .customLong("verbose")], help: "Verbose mode. Defaults to false")
+  @Flag(name: [.short, .customLong("verbose")], help: "Verbose mode. Defaults to false")
   var verbose: Bool = false
 
   @Option(name: [.short, .customLong("input")], help: "The CSV file to load, or '-' for stdin.")
@@ -39,17 +39,22 @@ struct Run: ParsableCommand {
   @Option(name: [.customLong("algorithm")], help: "Algorithm. Default: percentile90_5")
   var algorithm: String = "percentile90_5"
 
+  @Option(
+    name: [.customLong("write-state-interval")],
+    help: "Write state interval in seconds. Default: 60")
+  var writeStateInterval: TimeInterval = 60
+
   mutating func run() throws {
     let verbose = self.verbose
 
     LoggingSystem.bootstrap { label in
-        var handler = StreamLogHandler.standardOutput(label: label)
-        if verbose {
-          handler.logLevel = .trace
-        } else {
-          handler.logLevel = .info
-        }
-        return handler
+      var handler = StreamLogHandler.standardOutput(label: label)
+      if verbose {
+        handler.logLevel = .trace
+      } else {
+        handler.logLevel = .info
+      }
+      return handler
     }
 
     if inFile == "-" {
@@ -70,6 +75,7 @@ struct Run: ParsableCommand {
     simulation.maxPods = maxPods
     simulation.podStartupTime = podStartupTime
     simulation.podShutdownTime = podShutdownTime
+    simulation.writeStateInterval = writeStateInterval
     switch algorithm {
     case "percentile90_30":
       simulation.algorithm = PercentileAlgorithm(percentile: 0.90, lookback: 30 * 60)

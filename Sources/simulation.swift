@@ -5,8 +5,8 @@
 //  Created by Bing-Chang Lai on 4/27/25.
 //
 
-import Foundation
 import CSV
+import Foundation
 import Logging
 import SigmaSwiftStatistics
 
@@ -33,6 +33,7 @@ class Simulation {
   var podStartupTime: TimeInterval = 180
   var podShutdownTime: TimeInterval = 0
   var multipler: Double = 1.0
+  var writeStateInterval: TimeInterval = 60
 
   var eventQueue: EventQueue = EventQueue()
   var queue: JobQueue = JobQueue()
@@ -64,7 +65,7 @@ class Simulation {
         expectedJobCount += 1
       }
     } catch {
-        // Invalid row format
+      // Invalid row format
     }
   }
 
@@ -83,15 +84,15 @@ class Simulation {
     if desiredWorkers > self.queue.count {
       desiredWorkers = self.queue.count
     }
-    return Int(ceil(Double(desiredWorkers)/Double(workersPerPod)))
+    return Int(ceil(Double(desiredWorkers) / Double(workersPerPod)))
   }
 
   func aliveWorkers() -> [Worker] {
-    return self.workers.filter( { $0.alive == true } )
+    return self.workers.filter({ $0.alive == true })
   }
 
   func busyWorkers() -> [Worker] {
-    return aliveWorkers().filter( { $0.idle == false } )
+    return aliveWorkers().filter({ $0.idle == false })
   }
 
   func currentPodCount() -> Int {
@@ -109,7 +110,7 @@ class Simulation {
 
   func removePod(_ n: Int = 1) {
     let targetWorkerCount = n * workersPerPod
-    var removed = 0;
+    var removed = 0
     for w in workers {
       // Mark worker are inactive
       if w.alive == true {
@@ -133,20 +134,24 @@ class Simulation {
       let autoscaleAt = first.at + 1
       eventQueue.enqueue(AutoScaleEvent(at: autoscaleAt))
 
+      // Schedule first WriteStateEvent
+      eventQueue.enqueue(WriteStateEvent(at: first.at))
+
       var at = first.at
       while let event = eventQueue.dequeue() {
         if isDone() { break }
         at = event.at
 
-        writeState(at)
         if currentPodCount() > maxPods {
           maxPods = currentPodCount()
         }
 
         event.perform(self)
 
-        aliveWorkers().forEach( { $0.perform(eventQueue, at: at) } )
+        aliveWorkers().forEach({ $0.perform(eventQueue, at: at) })
       }
+
+      // Write final state
       writeState(at)
       if currentPodCount() > maxPods {
         maxPods = currentPodCount()
@@ -156,23 +161,27 @@ class Simulation {
       let pickupAverage = Sigma.average(pickups)!
       let pickupMax = Sigma.max(pickups)!
 
-      eventLog.info("Parameters", metadata: [
-        "target_pickup_s": "\(String(format: "%.2f", targetPickup))",
-        "workers_per_pod": "\(workersPerPod)",
-        "max_pods": "\(maxPods)",
-        "min_pods": "\(minPods)",
-        "algorithm": "\(algorithm)",
-        "pod_startup_time": "\(podStartupTime)",
-        "pod_shutdown_time": "\(podShutdownTime)",
-        "multipler": "\(multipler)"
-      ])
+      eventLog.info(
+        "Parameters",
+        metadata: [
+          "target_pickup_s": "\(String(format: "%.2f", targetPickup))",
+          "workers_per_pod": "\(workersPerPod)",
+          "max_pods": "\(maxPods)",
+          "min_pods": "\(minPods)",
+          "algorithm": "\(algorithm)",
+          "pod_startup_time": "\(podStartupTime)",
+          "pod_shutdown_time": "\(podShutdownTime)",
+          "multipler": "\(multipler)",
+        ])
 
-      eventLog.info("Summary", metadata: [
-        "%_<_target": "\(String(format: "%.2f", jobsBelowTargetPercent(pickups)))",
-        "max_pods": "\(maxPods)",
-        "pickup_average_s": "\(String(format: "%.2f", pickupAverage))",
-        "pickup_max_s": "\(String(format: "%.2f", pickupMax))"
-      ])
+      eventLog.info(
+        "Summary",
+        metadata: [
+          "%_<_target": "\(String(format: "%.2f", jobsBelowTargetPercent(pickups)))",
+          "max_pods": "\(maxPods)",
+          "pickup_average_s": "\(String(format: "%.2f", pickupAverage))",
+          "pickup_max_s": "\(String(format: "%.2f", pickupMax))",
+        ])
     }
   }
 
@@ -207,9 +216,11 @@ class Simulation {
 
     switch type {
     case .kpis:
-      try! csv.write(row: ["timestamp", "running%", "%_<_target", "95%_pickup", "max_pickup", "queued_jobs"])
+      try! csv.write(row: [
+        "timestamp", "running%", "%_<_target", "95%_pickup", "max_pickup", "queued_jobs",
+      ])
     case .queueLengths:
-      try! csv.write(row: ["timestamp","idle_workers", "running_workers", "pods", "queued_jobs"])
+      try! csv.write(row: ["timestamp", "idle_workers", "running_workers", "pods", "queued_jobs"])
     }
 
     csvs[type] = csv
@@ -228,7 +239,7 @@ class Simulation {
       "\(String(format: "%.2f", jobsBelowTargetPercent(pickups)))",
       "\(String(format: "%.2f", Sigma.percentile(pickups, percentile: 0.95) ?? 0))",
       "\(String(format: "%.2f", Sigma.max(pickups) ?? 0))",
-      "\(queue.jobs.count)"
+      "\(queue.jobs.count)",
     ])
 
     let queueLengths = csv(.queueLengths)
@@ -237,12 +248,12 @@ class Simulation {
       "\(aliveWorkers().count - running)",
       "\(running)",
       "\(currentPodCount())",
-      "\(queue.jobs.count)"
+      "\(queue.jobs.count)",
     ])
   }
 
   func jobsBelowTargetPercent(_ pickups: [Double]) -> Double {
-    let jobsBelowTarget = pickups.filter( { $0 <= targetPickup } ).count
+    let jobsBelowTarget = pickups.filter({ $0 <= targetPickup }).count
     var percentBelowTarget: Double = 0
     if pickups.count > 0 {
       percentBelowTarget = Double(jobsBelowTarget) / Double(pickups.count) * 100
@@ -254,4 +265,3 @@ class Simulation {
     return expectedJobCount <= 0 && self.busyWorkers().count == 0
   }
 }
-

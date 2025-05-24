@@ -48,10 +48,12 @@ class JobEnqueuedEvent: Event {
   }
 
   override func perform(_ simulation: Simulation) {
-    eventLog.trace("JobEnqueuedEvent", metadata: [
-      "at": "\(self.at)",
-      "job_id": "\(self.job.id)"
-    ])
+    eventLog.trace(
+      "JobEnqueuedEvent",
+      metadata: [
+        "at": "\(self.at)",
+        "job_id": "\(self.job.id)",
+      ])
     to.enqueue(self.job)
   }
 }
@@ -67,11 +69,13 @@ class JobCompletedEvent: Event {
   }
 
   override func perform(_ simulation: Simulation) {
-    eventLog.trace("JobCompletedEvent", metadata: [
-      "at": "\(self.at)",
-      "job_id": "\(self.job.id)",
-      "worker_id": "\(self.worker_id)"
-    ])
+    eventLog.trace(
+      "JobCompletedEvent",
+      metadata: [
+        "at": "\(self.at)",
+        "job_id": "\(self.job.id)",
+        "worker_id": "\(self.worker_id)",
+      ])
     simulation.recordJobCompletion(job, worker_id: worker_id, at: at)
     if let w = simulation.workerWithId(self.worker_id) {
       w.idle = true
@@ -90,14 +94,18 @@ class AutoScaleEvent: Event {
     desiredPodCount = min(desiredPodCount, simulation.maxPods)
     desiredPodCount = max(desiredPodCount, simulation.minPods)
 
-    var direction: String;
+    var direction: String
 
     if desiredPodCount > currentPodCount {
       direction = "up"
-      simulation.eventQueue.enqueue(AddPodEvent(desiredPodCount - currentPodCount, at: at.addingTimeInterval(simulation.podStartupTime)))
+      simulation.eventQueue.enqueue(
+        AddPodEvent(
+          desiredPodCount - currentPodCount, at: at.addingTimeInterval(simulation.podStartupTime)))
     } else if desiredPodCount < currentPodCount {
       direction = "down"
-      simulation.eventQueue.enqueue(RemovePodEvent(desiredPodCount - currentPodCount, at: at.addingTimeInterval(simulation.podShutdownTime)))
+      simulation.eventQueue.enqueue(
+        RemovePodEvent(
+          desiredPodCount - currentPodCount, at: at.addingTimeInterval(simulation.podShutdownTime)))
     } else {
       direction = "flat"
       if !simulation.isDone() {
@@ -106,30 +114,34 @@ class AutoScaleEvent: Event {
       }
     }
 
-    eventLog.trace("AutoScaleEvent", metadata: [
-      "at": "\(self.at)",
-      "scale": "\(direction)",
-      "currentPods": "\(currentPodCount)",
-      "desiredPods": "\(desiredPodCount)",
-      "actual_s": "\(simulation.queue.latency())",
-      "estimated_s": "\(e)"
-    ])
+    eventLog.trace(
+      "AutoScaleEvent",
+      metadata: [
+        "at": "\(self.at)",
+        "scale": "\(direction)",
+        "currentPods": "\(currentPodCount)",
+        "desiredPods": "\(desiredPodCount)",
+        "actual_s": "\(simulation.queue.latency())",
+        "estimated_s": "\(e)",
+      ])
   }
 }
 
 class AddPodEvent: Event {
   var count: Int
-  
+
   init(_ count: Int, at: Date = Date()) {
     self.count = count
     super.init(at: at)
   }
-  
+
   override func perform(_ simulation: Simulation) {
-    eventLog.trace("AddPodEvent", metadata: [
-      "at": "\(self.at)",
-      "count": "\(count)"
-    ])
+    eventLog.trace(
+      "AddPodEvent",
+      metadata: [
+        "at": "\(self.at)",
+        "count": "\(count)",
+      ])
     simulation.addPod(count)
 
     if !simulation.isDone() {
@@ -141,17 +153,19 @@ class AddPodEvent: Event {
 
 class RemovePodEvent: Event {
   var count: Int
-  
+
   init(_ count: Int, at: Date = Date()) {
     self.count = count
     super.init(at: at)
   }
-  
+
   override func perform(_ simulation: Simulation) {
-    eventLog.trace("RemovePodEvent", metadata: [
-      "at": "\(self.at)",
-      "count": "\(count)"
-    ])
+    eventLog.trace(
+      "RemovePodEvent",
+      metadata: [
+        "at": "\(self.at)",
+        "count": "\(count)",
+      ])
     simulation.removePod(count)
 
     if !simulation.isDone() {
@@ -161,3 +175,19 @@ class RemovePodEvent: Event {
   }
 }
 
+class WriteStateEvent: Event {
+  override func perform(_ simulation: Simulation) {
+    eventLog.trace(
+      "WriteStateEvent",
+      metadata: [
+        "at": "\(self.at)"
+      ])
+    simulation.writeState(at)
+
+    if !simulation.isDone() {
+      // Schedule next write state event
+      simulation.eventQueue.enqueue(
+        WriteStateEvent(at: at.addingTimeInterval(simulation.writeStateInterval)))
+    }
+  }
+}

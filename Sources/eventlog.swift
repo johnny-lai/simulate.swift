@@ -32,12 +32,12 @@ class EventLog {
   }
 
   func pickups(since: Date) -> [Double] {
-    entries.filter( { $0.completedAt >= since } )
-      .map( { $0.pickup } )
+    entries.filter({ $0.completedAt >= since })
+      .map({ $0.pickup })
   }
 
   func latencies(since: Date) -> [Double] {
-    entries.filter( { $0.completedAt >= since } )
-      .map( { $0.latency } )
+    entries.filter({ $0.completedAt >= since })
+      .map({ $0.latency })
   }
 }
