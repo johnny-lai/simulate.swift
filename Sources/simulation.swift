@@ -45,6 +45,8 @@ class Simulation {
 
   var history: EventLog = EventLog()
 
+  var stateSnapshots: [(pods: Int, runningWorkers: Int, idleWorkers: Int)] = []
+
   deinit {
     csvs.forEach { $0.value.stream.close() }
   }
@@ -161,27 +163,46 @@ class Simulation {
       let pickupAverage = Sigma.average(pickups)!
       let pickupMax = Sigma.max(pickups)!
 
-      eventLog.info(
-        "Parameters",
-        metadata: [
-          "target_pickup_s": "\(String(format: "%.2f", targetPickup))",
-          "workers_per_pod": "\(workersPerPod)",
-          "max_pods": "\(maxPods)",
-          "min_pods": "\(minPods)",
-          "algorithm": "\(algorithm)",
-          "pod_startup_time": "\(podStartupTime)",
-          "pod_shutdown_time": "\(podShutdownTime)",
-          "multipler": "\(multipler)",
-        ])
+      // Calculate averages from state snapshots
+      let avgPods =
+        stateSnapshots.isEmpty
+        ? 0.0 : Double(stateSnapshots.map { $0.pods }.reduce(0, +)) / Double(stateSnapshots.count)
+      let avgRunningWorkers =
+        stateSnapshots.isEmpty
+        ? 0.0
+        : Double(stateSnapshots.map { $0.runningWorkers }.reduce(0, +))
+          / Double(stateSnapshots.count)
+      let avgIdleWorkers =
+        stateSnapshots.isEmpty
+        ? 0.0
+        : Double(stateSnapshots.map { $0.idleWorkers }.reduce(0, +)) / Double(stateSnapshots.count)
+      let avgRunningRatio =
+        stateSnapshots.isEmpty
+        ? 0.0
+        : Double(
+          stateSnapshots.map { $0.runningWorkers / ($0.runningWorkers + $0.idleWorkers) }.reduce(
+            0, +)) / Double(stateSnapshots.count)
 
-      eventLog.info(
-        "Summary",
-        metadata: [
-          "%_<_target": "\(String(format: "%.2f", jobsBelowTargetPercent(pickups)))",
-          "max_pods": "\(maxPods)",
-          "pickup_average_s": "\(String(format: "%.2f", pickupAverage))",
-          "pickup_max_s": "\(String(format: "%.2f", pickupMax))",
-        ])
+      print("Parameters:")
+      print("  target_pickup_s = \(String(format: "%.2f", targetPickup))")
+      print("  workers_per_pod = \(workersPerPod)")
+      print("         max_pods = \(maxPods)")
+      print("         min_pods = \(minPods)")
+      print("        algorithm = \(algorithm)")
+      print(" pod_startup_time = \(podStartupTime)")
+      print("pod_shutdown_time = \(podShutdownTime)")
+      print("        multipler = \(multipler)")
+      print()
+
+      print("Summary:")
+      print("         %_<_target = \(String(format: "%.2f", jobsBelowTargetPercent(pickups)))")
+      print("           max_pods = \(maxPods)")
+      print("           avg_pods = \(String(format: "%.2f", avgPods))")
+      print("  avg_running_ratio = \(String(format: "%.2f", avgRunningRatio))")
+      print("avg_running_workers = \(String(format: "%.2f", avgRunningWorkers))")
+      print("   avg_idle_workers = \(String(format: "%.2f", avgIdleWorkers))")
+      print("   pickup_average_s = \(String(format: "%.2f", pickupAverage))")
+      print("       pickup_max_s = \(String(format: "%.2f", pickupMax))")
     }
   }
 
@@ -231,6 +252,11 @@ class Simulation {
     let pickups = history.pickups(since: at.addingTimeInterval(-30 * 60))
     let running = busyWorkers().count
     let totalWorkers = aliveWorkers().count
+    let idle = aliveWorkers().count - running
+    let pods = currentPodCount()
+
+    // Store snapshot for later averaging
+    stateSnapshots.append((pods: pods, runningWorkers: running, idleWorkers: idle))
 
     let kpis = csv(.kpis)
     try! kpis.write(row: [
@@ -245,9 +271,9 @@ class Simulation {
     let queueLengths = csv(.queueLengths)
     try! queueLengths.write(row: [
       "\(at)",
-      "\(aliveWorkers().count - running)",
+      "\(idle)",
       "\(running)",
-      "\(currentPodCount())",
+      "\(pods)",
       "\(queue.jobs.count)",
     ])
   }
